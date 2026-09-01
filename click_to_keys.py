@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 import tomllib
@@ -38,8 +39,15 @@ ZWIFT_SERVICE_UUIDS = {
 }
 
 REGISTRY_PATH = Path(__file__).parent / "devices.json"
+CONFIG_PATH = Path(__file__).parent / "config.toml"
 BATTERY_POLL_INTERVAL = 120.0   # seconds between battery reads
 RETRY_DELAY = 3.0
+
+# During auto-discovery, the DIS serial prefix identifies a controller's layout
+# so the matching config block (by name) gets bound to it. Both units share the
+# same serial suffix; only the prefix differs. Unknown prefixes fall back to
+# asking the user (see assign_auto_slots).
+SERIAL_PREFIX_TO_NAME = {"0A": "abxy", "0B": "dpad"}
 
 # bit index in the 32-bit active-low mask -> button name.
 BUTTONS = {
@@ -81,8 +89,7 @@ def parse_spec(spec: str):
 
 def load_config():
     """Return a list of dicts: {name, address (or None), keymap}."""
-    path = Path(__file__).parent / "config.toml"
-    with open(path, "rb") as f:
+    with open(CONFIG_PATH, "rb") as f:
         cfg = tomllib.load(f)
 
     blocks = cfg.get("controller")
@@ -196,6 +203,109 @@ class Discovery:
                     return mac
             self._new.clear()
             await self._new.wait()
+
+
+# --- controller identification (which physical controller is which) ----------
+async def read_serial(device):
+    """Briefly connect to read the DIS serial. Returns the string or None."""
+    if device is None:
+        return None
+    try:
+        async with BleakClient(device) as client:
+            return await _read_text(client, DIS["serial"])
+    except Exception as e:
+        print(f"could not read serial from {device.address}: {e}")
+        return None
+
+
+async def identify_prefix(discovery, registry, mac):
+    """Return the serial prefix (e.g. "0A") for a discovered MAC, or None.
+
+    Uses the cached serial from devices.json when present; otherwise opens a
+    short-lived connection to read it and persists the result.
+    """
+    serial = registry.data.get(mac, {}).get("serial")
+    if not serial:
+        serial = await read_serial(discovery.devices.get(mac))
+        if serial:
+            registry.record_details(mac, {"serial": serial})
+    if serial and "-" in serial:
+        return serial.split("-", 1)[0].upper()
+    return None
+
+
+def ask_block(mac, prefix, names):
+    """Prompt the user to pick which config block a controller belongs to."""
+    print(f"Discovered controller {mac} (serial prefix {prefix or 'unknown'}).")
+    print("Which controller is this?")
+    for i, n in enumerate(names, 1):
+        print(f"  {i}) {n}")
+    while True:
+        ans = input("Enter number or name: ").strip()
+        if ans in names:
+            return ans
+        if ans.isdigit() and 1 <= int(ans) <= len(names):
+            return names[int(ans) - 1]
+        print("Invalid choice.")
+
+
+async def assign_auto_slots(discovery, registry, auto_blocks, claimed):
+    """Resolve address-less config blocks to concrete MACs by serial identity.
+
+    Returns {block_name: mac}. Identifies each discovered controller by its
+    serial prefix and routes it to the config block of the matching name; an
+    unrecognized prefix (or one mapping to a non-auto/already-filled block)
+    falls back to asking the user.
+    """
+    pending = {c["name"] for c in auto_blocks}
+    result = {}
+    while pending:
+        mac = await discovery.claim_next(claimed)
+        prefix = await identify_prefix(discovery, registry, mac)
+        target = SERIAL_PREFIX_TO_NAME.get(prefix)
+        if target not in pending:
+            target = ask_block(mac, prefix, sorted(pending))
+        claimed.add(mac)
+        pending.discard(target)
+        result[target] = mac
+        print(f"[{target}] assigned -> {mac} (serial prefix {prefix or 'unknown'})")
+    return result
+
+
+def write_addresses(config_path, assignments):
+    """Insert `address = "MAC"` under each matching [[controller]] block.
+
+    A targeted textual edit that preserves the file's comments (tomllib is
+    read-only). Only adds an address to a block that has a matching name and no
+    existing address line, so re-running stays idempotent.
+    """
+    lines = config_path.read_text().splitlines(keepends=True)
+
+    # split into segments, each starting at a [[controller]] header (index 0 is
+    # the preamble before the first block)
+    segments, cur = [], []
+    for line in lines:
+        if line.strip().startswith("[[controller]]") and cur:
+            segments.append(cur)
+            cur = []
+        cur.append(line)
+    segments.append(cur)
+
+    out = []
+    for seg in segments:
+        name = next((m.group(1) for line in seg
+                     if (m := re.match(r'\s*name\s*=\s*"([^"]*)"', line))), None)
+        has_address = any(line.strip().startswith("address") for line in seg)
+        if name in assignments and not has_address:
+            for line in seg:
+                out.append(line)
+                if re.match(r'\s*name\s*=', line):
+                    out.append(f'address = "{assignments[name]}"\n')
+        else:
+            out.extend(seg)
+    config_path.write_text("".join(out))
+    print("Updated config.toml with discovered addresses "
+          "(remove an address = line to re-run discovery for that controller).")
 
 
 # --- protobuf button-mask parsing --------------------------------------------
@@ -559,18 +669,18 @@ async def main():
     print()
 
     async with Discovery(registry) as discovery:
-        # resolve auto slots to concrete MACs, in config order
+        # resolve auto slots to concrete MACs by serial identity
         claimed = {c["address"].upper() for c in fixed}
+        assigned = {}
+        if auto:
+            print(f"discovering {len(auto)} controller(s)...")
+            assigned = await assign_auto_slots(discovery, registry, auto, claimed)
+            write_addresses(CONFIG_PATH, assigned)
+
         specs = []
         for c in controllers:
-            if c["address"]:
-                specs.append((c["name"], c["address"], c["keymap"]))
-            else:
-                print(f"[{c['name']}] discovering a controller...")
-                mac = await discovery.claim_next(claimed)
-                claimed.add(mac)
-                print(f"[{c['name']}] assigned -> {mac}")
-                specs.append((c["name"], mac, c["keymap"]))
+            addr = c["address"] or assigned[c["name"]]
+            specs.append((c["name"], addr, c["keymap"]))
 
         tasks = [
             asyncio.create_task(run_device(discovery, registry, addr, keymap, label=f"[{name}] "))

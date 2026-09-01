@@ -29,6 +29,7 @@
 
 [[controller]]
 name = "abxy"
+address = "F4:C4:59:03:BC:6F"
 
 [controller.buttons]
 A = "a"
@@ -39,6 +40,7 @@ PLUS = "space"
 
 [[controller]]
 name = "dpad"
+address = "F4:C4:59:03:A0:F3"
 
 [controller.buttons]
 UP = "up"
