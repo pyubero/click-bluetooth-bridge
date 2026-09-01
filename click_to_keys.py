@@ -597,6 +597,21 @@ async def record_details(client, registry, address):
     registry.record_details(address.upper(), details)
 
 
+async def forget_device(address):
+    """Best-effort: purge a controller from BlueZ so a stale bond can't block
+    reconnection. A Click that sleeps while BlueZ still holds it stops
+    advertising and our scanner never re-detects it; RemoveDevice (equivalent to
+    `bluetoothctl remove`) forces a fresh discovery on the next button press.
+    Linux-only; unknown devices and errors are ignored."""
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        await asyncio.wait_for(BleakClient(address).unpair(), timeout=5)
+        print(f"cleared stale Bluetooth state for {address}")
+    except Exception:
+        pass
+
+
 # --- one device, with reconnect + battery ------------------------------------
 async def run_device(discovery, registry, address, keymap, label=""):
     keyboard = make_keyboard(keymap)
@@ -668,6 +683,11 @@ async def main():
         print(f"{len(auto)} will be auto-assigned to discovered Zwift controllers.")
     print()
 
+    # heal stale BlueZ bonds from a prior (possibly unclean) run before scanning,
+    # so a sleeping controller at a known address can advertise & reconnect
+    for c in fixed:
+        await forget_device(c["address"])
+
     async with Discovery(registry) as discovery:
         # resolve auto slots to concrete MACs by serial identity
         claimed = {c["address"].upper() for c in fixed}
@@ -682,6 +702,7 @@ async def main():
             addr = c["address"] or assigned[c["name"]]
             specs.append((c["name"], addr, c["keymap"]))
 
+        addresses = [addr for _, addr, _ in specs]
         tasks = [
             asyncio.create_task(run_device(discovery, registry, addr, keymap, label=f"[{name}] "))
             for name, addr, keymap in specs
@@ -690,6 +711,10 @@ async def main():
             await asyncio.gather(*tasks)
         finally:
             registry.flush()
+            # leave BlueZ clean on a normal exit so the controllers reconnect
+            # freshly next time (startup heal covers hard kills that skip this)
+            for addr in addresses:
+                await forget_device(addr)
 
 
 if __name__ == "__main__":
