@@ -1,0 +1,48 @@
+# ============================================================
+#  Zwift Click -> keyboard configuration
+# ============================================================
+#
+# One [[controller]] block per controller: a name (shown in logs),
+# its own [controller.buttons] map, and an OPTIONAL address.
+#
+# The "address" line:
+#   * WITH an address  -> the block always binds to that exact controller.
+#   * WITHOUT an address -> the block is an "auto" slot: at startup the tool
+#     grabs the next Zwift controller it discovers that no other block has
+#     claimed. No MAC lookup needed.
+#     Note: auto slots are filled in discovery order, which is not guaranteed.
+#     If your controllers have DIFFERENT button layouts (e.g. abxy vs dpad),
+#     prefer fixed addresses so each layout gets its matching key map.
+#
+# Button layouts seen so far:
+#     abxy layout:  A  B  Y  Z  PLUS
+#     dpad layout:  UP  DOWN  LEFT  RIGHT  MINUS
+# Button names are case-insensitive. A single key is HELD while the button is
+# held; a combo (contains "+") is TAPPED once on press.
+#
+# Key names: letters/digits/symbols ("a" "5" "/"), "plus", "minus",
+#   up down left right space enter esc tab backspace delete
+#   home end pageup pagedown f1..f12, and modifiers ctrl shift alt cmd.
+#
+# Every Zwift controller ever seen is recorded in devices.json (next to this
+# file) with first-seen / last-seen timestamps plus serial/firmware/hardware.
+
+[[controller]]
+name = "abxy"
+
+[controller.buttons]
+A = "a"
+B = "b"
+Y = "y"
+Z = "z"
+PLUS = "space"
+
+[[controller]]
+name = "dpad"
+
+[controller.buttons]
+UP = "up"
+DOWN = "down"
+LEFT = "left"
+RIGHT = "right"
+MINUS = "minus"

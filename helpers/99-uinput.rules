@@ -1,0 +1,10 @@
+# Grant the `input` group read/write access to /dev/uinput so the bridge can
+# create a virtual keyboard without root. Install with:
+#
+#   sudo cp helpers/99-uinput.rules /etc/udev/rules.d/99-uinput.rules
+#   sudo modprobe uinput
+#   sudo usermod -aG input "$USER"
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   # then log out/in (or reboot) for the input-group membership to apply
+#
+KERNEL=="uinput", GROUP="input", MODE="0660"

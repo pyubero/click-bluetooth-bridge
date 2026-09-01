@@ -1,0 +1,20 @@
+{
+  "F4:C4:59:03:A0:F3": {
+    "firmware": "1.1.0",
+    "first_seen": "2026-09-01T20:29:50",
+    "hardware": "B.0",
+    "last_seen": "2026-09-01T20:33:44",
+    "manufacturer": "Zwift Inc",
+    "name": "Zwift Click",
+    "serial": "0B-34C45903A0F3"
+  },
+  "F4:C4:59:03:BC:6F": {
+    "firmware": "1.1.0",
+    "first_seen": "2026-09-01T20:29:43",
+    "hardware": "B.0",
+    "last_seen": "2026-09-01T20:34:06",
+    "manufacturer": "Zwift Inc",
+    "name": "Zwift Click",
+    "serial": "0A-34C45903BC6F"
+  }
+}

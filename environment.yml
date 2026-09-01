@@ -1,0 +1,29 @@
+# Conda environment for the Zwift Click BLE -> keystroke bridge.
+#
+# Create it with:   conda env create -f environment.yml
+# Activate it with: conda activate zwift-click
+# Update it with:   conda env update -f environment.yml --prune
+#
+# Cross-platform: works on Linux (BlueZ) and Windows (WinRT).
+# On Linux, Bleak pulls in dbus-fast and pynput pulls in python-xlib automatically.
+
+name: zwift-click
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.11
+  - pip
+
+  # Installed via pip to guarantee the latest cross-platform wheels.
+  # - pip:
+  - bleak>=0.22        # BLE client (talks to BlueZ on Linux, WinRT on Windows)
+  - protobuf>=4.25     # decode the Click's protobuf button messages
+  - pynput>=1.7        # direct keystroke injection (Windows + Linux/X11)
+
+  - pip:
+    # Linux only: kernel-level /dev/uinput virtual keyboard. Used automatically
+    # on Wayland (and X11) so the compositor never prompts for input permission.
+    # Needs one-time access to /dev/uinput -- see README/CLAUDE.md.
+    - "evdev>=1.6 ; sys_platform == 'linux'"
