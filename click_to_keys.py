@@ -1,11 +1,14 @@
+import argparse
 import asyncio
 import json
+import logging
 import os
 import re
 import sys
 import time
 import tomllib
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from bleak import BleakScanner, BleakClient
@@ -40,8 +43,42 @@ ZWIFT_SERVICE_UUIDS = {
 
 REGISTRY_PATH = Path(__file__).parent / "devices.json"
 CONFIG_PATH = Path(__file__).parent / "config.toml"
+LOG_PATH = Path(__file__).parent / "click_bridge.log"
 BATTERY_POLL_INTERVAL = 120.0   # seconds between battery reads
 RETRY_DELAY = 3.0
+
+# Runtime output goes through this logger: a rotating logfile always captures
+# full detail (button events included, at DEBUG); the console shows INFO and up
+# unless -v is passed. See setup_logging().
+log = logging.getLogger("click_bridge")
+
+
+def setup_logging(verbose: bool):
+    """Route runtime output to a rotating logfile plus the console.
+
+    The file handler is always DEBUG so click_bridge.log keeps the full
+    button-by-button trace; the console is INFO by default (clean, no
+    timestamps) and DEBUG when `verbose` is set.
+    """
+    if log.handlers:            # already configured (e.g. called twice)
+        return
+    log.setLevel(logging.DEBUG)
+    log.propagate = False
+
+    file_handler = RotatingFileHandler(
+        LOG_PATH, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)-7s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+
+    console = logging.StreamHandler(sys.stdout)
+    console.setLevel(logging.DEBUG if verbose else logging.INFO)
+    console.setFormatter(logging.Formatter("%(message)s"))
+
+    log.addHandler(file_handler)
+    log.addHandler(console)
 
 # During auto-discovery, the DIS serial prefix identifies a controller's layout
 # so the matching config block (by name) gets bound to it. Both units share the
@@ -127,7 +164,7 @@ class Registry:
             self.path.write_text(json.dumps(self.data, indent=2, sort_keys=True))
             self._last_save = time.monotonic()
         except Exception as e:
-            print(f"(could not write {self.path.name}: {e})")
+            log.warning("could not write %s: %s", self.path.name, e)
 
     def record_sighting(self, mac, name):
         now = datetime.now().isoformat(timespec="seconds")
@@ -214,7 +251,7 @@ async def read_serial(device):
         async with BleakClient(device) as client:
             return await _read_text(client, DIS["serial"])
     except Exception as e:
-        print(f"could not read serial from {device.address}: {e}")
+        log.warning("could not read serial from %s: %s", device.address, e)
         return None
 
 
@@ -268,7 +305,7 @@ async def assign_auto_slots(discovery, registry, auto_blocks, claimed):
         claimed.add(mac)
         pending.discard(target)
         result[target] = mac
-        print(f"[{target}] assigned -> {mac} (serial prefix {prefix or 'unknown'})")
+        log.info("[%s] assigned -> %s (serial prefix %s)", target, mac, prefix or "unknown")
     return result
 
 
@@ -304,8 +341,8 @@ def write_addresses(config_path, assignments):
         else:
             out.extend(seg)
     config_path.write_text("".join(out))
-    print("Updated config.toml with discovered addresses "
-          "(remove an address = line to re-run discovery for that controller).")
+    log.info("Updated config.toml with discovered addresses "
+             "(remove an address = line to re-run discovery for that controller).")
 
 
 # --- protobuf button-mask parsing --------------------------------------------
@@ -527,19 +564,19 @@ def make_keyboard(keymap):
             try:
                 kb = UinputKeyboard(keymap)
                 if not _announced_uinput:
-                    print("Injecting via kernel uinput virtual keyboard (Wayland-safe).")
+                    log.info("Injecting via kernel uinput virtual keyboard (Wayland-safe).")
                     _announced_uinput = True
                 return kb
             except (PermissionError, OSError, evdev.UInputError) as ex:
                 if not _warned_uinput:
-                    print(f"uinput unavailable ({ex}); falling back to pynput.\n"
-                          f"For prompt-free injection on Wayland, grant access once:\n"
-                          f"{_UINPUT_SETUP}")
+                    log.warning("uinput unavailable (%s); falling back to pynput.\n"
+                                "For prompt-free injection on Wayland, grant access once:\n%s",
+                                ex, _UINPUT_SETUP)
                     _warned_uinput = True
         elif evdev is not None and not _warned_uinput:
-            print("/dev/uinput not writable; using pynput (Wayland may prompt).\n"
-                  "For prompt-free injection on Wayland, grant access once:\n"
-                  f"{_UINPUT_SETUP}")
+            log.warning("/dev/uinput not writable; using pynput (Wayland may prompt).\n"
+                        "For prompt-free injection on Wayland, grant access once:\n%s",
+                        _UINPUT_SETUP)
             _warned_uinput = True
     try:
         return PynputKeyboard(keymap)
@@ -576,10 +613,10 @@ class Tracker:
         self.pressed = now
         for bit, name in self.bit_names.items():
             if newly_pressed & (1 << bit):
-                print(f"{self.label}PRESS   {name}")
+                log.debug("%sPRESS   %s", self.label, name)
                 self.kb.press(name)
             if newly_released & (1 << bit):
-                print(f"{self.label}RELEASE {name}")
+                log.debug("%sRELEASE %s", self.label, name)
                 self.kb.release(name)
 
 
@@ -607,7 +644,7 @@ async def forget_device(address):
         return
     try:
         await asyncio.wait_for(BleakClient(address).unpair(), timeout=5)
-        print(f"cleared stale Bluetooth state for {address}")
+        log.info("cleared stale Bluetooth state for %s", address)
     except Exception:
         pass
 
@@ -624,7 +661,7 @@ async def run_device(discovery, registry, address, keymap, label=""):
 
     while True:
         try:
-            print(f"{label}waiting for device (press a button to wake it)...")
+            log.info("%swaiting for device (press a button to wake it)...", label)
             device = await discovery.wait_for(address)
 
             loop = asyncio.get_running_loop()
@@ -633,14 +670,14 @@ async def run_device(discovery, registry, address, keymap, label=""):
             def on_disconnect(_client):
                 loop.call_soon_threadsafe(disconnected.set)
 
-            print(f"{label}connecting...")
+            log.info("%sconnecting...", label)
             async with BleakClient(device, disconnected_callback=on_disconnect) as client:
                 tracker.reset()
                 await client.start_notify(RESPONSE, lambda s, d: None)
                 await client.start_notify(MEASURED, on_measured)
                 await client.write_gatt_char(CONTROL_POINT, HANDSHAKE, response=False)
                 await record_details(client, registry, address)
-                print(f"{label}ready.")
+                log.info("%sready.", label)
 
                 # battery: read now, then poll until disconnect (reads avoid the
                 # multi-device notification cross-talk that notify would hit)
@@ -649,7 +686,7 @@ async def run_device(discovery, registry, address, keymap, label=""):
                     try:
                         batt = (await client.read_gatt_char(BATTERY))[0]
                         if batt != last_batt:
-                            print(f"{label}battery {batt}%")
+                            log.info("%sbattery %d%%", label, batt)
                             last_batt = batt
                     except Exception:
                         pass
@@ -657,17 +694,17 @@ async def run_device(discovery, registry, address, keymap, label=""):
                         await asyncio.wait_for(disconnected.wait(), timeout=BATTERY_POLL_INTERVAL)
                     except asyncio.TimeoutError:
                         pass
-                print(f"{label}disconnected.")
+                log.info("%sdisconnected.", label)
         except asyncio.CancelledError:
             keyboard.release_all()
             if hasattr(keyboard, "close"):
                 keyboard.close()
             raise
         except (BleakError, asyncio.TimeoutError, EOFError, OSError) as e:
-            print(f"{label}connection error: {e}")
+            log.warning("%sconnection error: %s", label, e)
         finally:
             keyboard.release_all()
-        print(f"{label}reconnecting in {RETRY_DELAY:.0f}s...")
+        log.info("%sreconnecting in %.0fs...", label, RETRY_DELAY)
         await asyncio.sleep(RETRY_DELAY)
 
 
@@ -677,11 +714,10 @@ async def main():
 
     fixed = [c for c in controllers if c["address"]]
     auto = [c for c in controllers if not c["address"]]
-    print(f"Loaded {len(controllers)} controller(s): "
-          + ", ".join(c["name"] for c in controllers))
+    log.info("Loaded %d controller(s): %s",
+             len(controllers), ", ".join(c["name"] for c in controllers))
     if auto:
-        print(f"{len(auto)} will be auto-assigned to discovered Zwift controllers.")
-    print()
+        log.info("%d will be auto-assigned to discovered Zwift controllers.", len(auto))
 
     # heal stale BlueZ bonds from a prior (possibly unclean) run before scanning,
     # so a sleeping controller at a known address can advertise & reconnect
@@ -693,7 +729,7 @@ async def main():
         claimed = {c["address"].upper() for c in fixed}
         assigned = {}
         if auto:
-            print(f"discovering {len(auto)} controller(s)...")
+            log.info("discovering %d controller(s)...", len(auto))
             assigned = await assign_auto_slots(discovery, registry, auto, claimed)
             write_addresses(CONFIG_PATH, assigned)
 
@@ -718,6 +754,16 @@ async def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Bridge Zwift Click button presses to keyboard input."
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true",
+        help="show DEBUG detail (button PRESS/RELEASE events) on the console; "
+             f"the logfile ({LOG_PATH.name}) always keeps full detail.",
+    )
+    args = parser.parse_args()
+    setup_logging(args.verbose)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
