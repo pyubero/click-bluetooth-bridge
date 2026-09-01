@@ -5,7 +5,15 @@
 A Bluetooth bridge that translates button presses from Zwift Click cycling controllers into keyboard inputs. Connects to one or more Click controllers (two button layouts: ABXY or d-pad), decodes their protobuf button messages, and injects the corresponding keystrokes into the system (kernel uinput on Linux/Wayland, pynput on Windows/X11).
 
 **Key components:**
-- **click_to_keys.py** — Main entry point; handles config loading, device discovery, per-device connection loops, battery polling, and keystroke injection
+- **click_to_keys.py** — Thin entry-point shim; the bridge lives in `src/` (run `python click_to_keys.py` or `python -m src.main`)
+- **src/** — The bridge package, one module per concern:
+  - **main.py** — entry point: logging setup, discovery orchestration, per-device tasks
+  - **config.py** — file paths, config loading, key-name validation
+  - **protocol.py** — Zwift/standard characteristic UUIDs, button-mask parsing
+  - **discovery.py** — shared BLE scanner, auto-discovery, controller identification
+  - **device.py** — per-controller `Tracker` and the reconnecting device loop
+  - **keyboard.py** — `UinputKeyboard`/`PynputKeyboard` backends and `make_keyboard`
+  - **registry.py** — `Registry` (persistent device sightings in devices.json)
 - **helpers/** — Utility scripts for discovery, debugging, device info, and button decoding
 - **config.toml** — User-facing button-to-key mapping and controller MAC addresses
 - **devices.json** — Auto-populated registry of seen controllers (MAC, serial, firmware, timestamps)
