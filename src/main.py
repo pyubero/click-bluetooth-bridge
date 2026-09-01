@@ -1,5 +1,19 @@
 """Entry point: config load, discovery orchestration, and per-device tasks."""
 
+# Support `python src/main.py` (run as a loose script, no package context): put
+# the repo root on the path and re-enter as a proper module so the relative
+# imports below resolve. `python click_to_keys.py` and `python -m src.main`
+# already have package context and skip this.
+if __name__ == "__main__" and __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from src.main import main_cli
+
+    main_cli()
+    raise SystemExit
+
 import argparse
 import asyncio
 import logging
