@@ -197,6 +197,13 @@ The **`helpers/`** scripts are handy when setting things up:
 - **Full detail.** Everything (including every press/release) is written to
   `click_bridge.log`; run with `-v` to see debug output on the console too.
 
+## Planned / future development
+
+- **System-tray mode.** Launch the bridge with no visible terminal, leaving a
+  system-tray status icon that shows it's running. A right-click menu would offer
+  battery info, edit config, view log, and quit — cross-platform via
+  [pystray](https://github.com/moses-palmer/pystray).
+
 ## License
 
 Released under the [GNU General Public License v3.0](LICENSE).
