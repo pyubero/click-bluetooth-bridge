@@ -2,8 +2,8 @@
 
 # Support `python src/main.py` (run as a loose script, no package context): put
 # the repo root on the path and re-enter as a proper module so the relative
-# imports below resolve. `python click_to_keys.py` and `python -m src.main`
-# already have package context and skip this.
+# imports below resolve. `python -m src.main` already has package context and
+# skips this.
 if __name__ == "__main__" and __package__ in (None, ""):
     import pathlib
     import sys
@@ -65,7 +65,7 @@ async def main():
     log.info("Loaded %d controller(s): %s",
              len(controllers), ", ".join(c["name"] for c in controllers))
     if auto:
-        log.info("%d will be auto-assigned to discovered Zwift controllers.", len(auto))
+        log.info("%d will be auto-assigned to discovered Click controllers.", len(auto))
 
     # heal stale BlueZ bonds from a prior (possibly unclean) run before scanning,
     # so a sleeping controller at a known address can advertise & reconnect
@@ -102,7 +102,7 @@ async def main():
 
 def main_cli():
     parser = argparse.ArgumentParser(
-        description="Bridge Zwift Click button presses to keyboard input."
+        description="Bridge Click controller button presses to keyboard input."
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true",

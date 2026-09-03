@@ -3,7 +3,7 @@
 ## Problem
 
 Auto-discovery resolved each address-less `[[controller]]` block by calling
-`Discovery.claim_next()`, which returns the **next Zwift MAC in arbitrary
+`Discovery.claim_next()`, which returns the **next Click MAC in arbitrary
 discovery order**. With two controllers of different layouts (abxy vs dpad),
 this routinely bound the wrong keymap to the wrong physical controller — the
 `abxy` block could end up driving the d-pad unit.

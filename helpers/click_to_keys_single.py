@@ -7,7 +7,7 @@ from bleak import BleakScanner, BleakClient
 from bleak.exc import BleakError
 from pynput.keyboard import Controller, Key
 
-# --- Zwift service characteristics -------------------------------------------
+# --- Click service characteristics -------------------------------------------
 CONTROL_POINT = "00000003-19ca-4651-86e5-fa29dcdd09d1"  # write: handshake
 RESPONSE      = "00000004-19ca-4651-86e5-fa29dcdd09d1"  # indicate: handshake reply
 MEASURED      = "00000002-19ca-4651-86e5-fa29dcdd09d1"  # notify: button data

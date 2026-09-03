@@ -1,13 +1,13 @@
-# Conda environment for the Zwift Click BLE -> keystroke bridge.
+# Conda environment for the Click controller BLE -> keystroke bridge.
 #
 # Create it with:   conda env create -f environment.yml
-# Activate it with: conda activate zwift-click
+# Activate it with: conda activate click-bridge
 # Update it with:   conda env update -f environment.yml --prune
 #
 # Cross-platform: works on Linux (BlueZ) and Windows (WinRT).
 # On Linux, Bleak pulls in dbus-fast and pynput pulls in python-xlib automatically.
 
-name: zwift-click
+name: click-bridge
 
 channels:
   - conda-forge

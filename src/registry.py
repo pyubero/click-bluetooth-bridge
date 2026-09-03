@@ -1,4 +1,4 @@
-"""Persistent registry of every Zwift controller ever seen (devices.json)."""
+"""Persistent registry of every Click controller ever seen (devices.json)."""
 
 import json
 import logging

@@ -23,9 +23,9 @@ async def main():
 asyncio.run(main())
 
 # RESULTS:
-# (zwift) pablo@pablo-15ICH:~/Documentos/bt-driver$ python discover.py 
+# (click-bridge) pablo@pablo-15ICH:~/Documentos/bt-driver$ python discover.py
 # Scanning...
-# Found Zwift Click (F4:C4:59:03:BC:6F). Connecting...
+# Found Click controller (F4:C4:59:03:BC:6F). Connecting...
 # Connected: True
 
 # [Service] 0000180a-0000-1000-8000-00805f9b34fb  Device Information

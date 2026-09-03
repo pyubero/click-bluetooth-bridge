@@ -6,7 +6,7 @@ import re
 
 from bleak import BleakScanner, BleakClient
 
-from .protocol import DIS, ZWIFT_NAME_HINT, ZWIFT_SERVICE_UUIDS, read_text
+from .protocol import DIS, NAME_HINT, SERVICE_UUIDS, read_text
 
 log = logging.getLogger("click_bridge")
 
@@ -19,26 +19,26 @@ SERIAL_PREFIX_TO_NAME = {"0A": "abxy", "0B": "dpad"}
 class Discovery:
     def __init__(self, registry):
         self.registry = registry
-        self.devices = {}                    # MAC -> BLEDevice (Zwift only)
+        self.devices = {}                    # MAC -> BLEDevice (Click only)
         self._events = {}                    # MAC -> asyncio.Event
-        self._new = asyncio.Event()          # fires when a new Zwift MAC appears
+        self._new = asyncio.Event()          # fires when a new Click MAC appears
         self._scanner = BleakScanner(detection_callback=self._detected)
 
     @staticmethod
-    def _is_zwift(device, adv):
+    def _is_click(device, adv):
         name = (getattr(device, "name", None) or getattr(adv, "local_name", None) or "")
-        if ZWIFT_NAME_HINT in name.lower():
+        if NAME_HINT in name.lower():
             return True
         uuids = {u.lower() for u in (adv.service_uuids or [])}
-        return bool(uuids & ZWIFT_SERVICE_UUIDS)
+        return bool(uuids & SERVICE_UUIDS)
 
     def _detected(self, device, adv):
-        if not self._is_zwift(device, adv):
+        if not self._is_click(device, adv):
             return
         mac = device.address.upper()
         is_new = mac not in self.devices
         self.devices[mac] = device
-        self.registry.record_sighting(mac, getattr(device, "name", None) or "Zwift Click")
+        self.registry.record_sighting(mac, getattr(device, "name", None) or "Click Controller")
         self._events.setdefault(mac, asyncio.Event()).set()
         if is_new:
             self._new.set()
@@ -58,7 +58,7 @@ class Discovery:
         return self.devices[mac]
 
     async def claim_next(self, exclude):
-        """Return a Zwift MAC not in `exclude` (waits until one appears)."""
+        """Return a Click MAC not in `exclude` (waits until one appears)."""
         while True:
             for mac in self.devices:
                 if mac not in exclude:

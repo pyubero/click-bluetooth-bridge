@@ -2,7 +2,7 @@
 
 ## Problem
 
-A Zwift Click sleeps aggressively to save its coin cell. On Linux/BlueZ, if the
+A Click controller sleeps aggressively to save its coin cell. On Linux/BlueZ, if the
 Click sleeps while BlueZ still holds it as a known/connected device, the Click
 **stops re-advertising**. The shared scanner (`Discovery`) only reacts to fresh
 advertisements (`_detected` → `wait_for(address)`), so the device is never

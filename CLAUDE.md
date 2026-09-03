@@ -2,14 +2,13 @@
 
 ## Project Overview
 
-A Bluetooth bridge that translates button presses from Zwift Click cycling controllers into keyboard inputs. Connects to one or more Click controllers (two button layouts: ABXY or d-pad), decodes their protobuf button messages, and injects the corresponding keystrokes into the system (kernel uinput on Linux/Wayland, pynput on Windows/X11).
+A Bluetooth bridge that translates button presses from Click cycling controllers into keyboard inputs. Connects to one or more Click controllers (two button layouts: ABXY or d-pad), decodes their protobuf button messages, and injects the corresponding keystrokes into the system (kernel uinput on Linux/Wayland, pynput on Windows/X11).
 
 **Key components:**
-- **click_to_keys.py** — Thin entry-point shim; the bridge lives in `src/` (run `python click_to_keys.py` or `python -m src.main`)
-- **src/** — The bridge package, one module per concern:
+- **src/** — The bridge package, one module per concern (run `python -m src.main`):
   - **main.py** — entry point: logging setup, discovery orchestration, per-device tasks
   - **config.py** — file paths, config loading, key-name validation
-  - **protocol.py** — Zwift/standard characteristic UUIDs, button-mask parsing
+  - **protocol.py** — Click/standard characteristic UUIDs, button-mask parsing
   - **discovery.py** — shared BLE scanner, auto-discovery, controller identification
   - **device.py** — per-controller `Tracker` and the reconnecting device loop
   - **keyboard.py** — `UinputKeyboard`/`PynputKeyboard` backends and `make_keyboard`
@@ -25,7 +24,7 @@ The project uses Conda with Python 3.11, pinning key dependencies for cross-plat
 ```bash
 # Create and activate environment
 conda env create -f environment.yml
-conda activate zwift-click
+conda activate click-bridge
 
 # Or update if environment exists
 conda env update -f environment.yml --prune
@@ -57,7 +56,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 ```bash
 # Run the main bridge
-python click_to_keys.py
+python -m src.main
 
 # Expected output during startup:
 #   "Loaded 2 controller(s): abxy, dpad"
@@ -85,7 +84,7 @@ The only good high level test is a real world test button by button. If necessar
 ## Architecture & Code Patterns
 
 **Discovery & Connection Flow:**
-1. `main()` loads config and creates a shared `Discovery` scanner (listens for all Zwift devices in range)
+1. `main()` loads config and creates a shared `Discovery` scanner (listens for all Click devices in range)
 2. Fixed-address controllers connect immediately; auto-assigned slots wait for `claim_next()` to find a free controller
 3. Per-device loop (`run_device`) connects, sends handshake, spawns notification listeners, and handles reconnection
 
@@ -100,7 +99,7 @@ The only good high level test is a real world test button by button. If necessar
 - **Tracker:** per-controller state machine that monitors bit changes and calls `Keyboard.press/release`
 - **Registry:** thread-safe device sighting recorder (first/last seen, serial, firmware); throttles writes to 30s intervals
 
-**Characteristic UUIDs** (Zwift service 19ca-4651-86e5-fa29dcdd09d1):
+**Characteristic UUIDs** (Click service 19ca-4651-86e5-fa29dcdd09d1):
 - 00000003: CONTROL_POINT (write handshake)
 - 00000004: RESPONSE (indicate handshake reply)
 - 00000002: MEASURED (notify button data)

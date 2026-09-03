@@ -1,6 +1,9 @@
-# Zwift Click → Keyboard Bridge
+# Click → Keyboard Bridge
 
-Turn one or more **Zwift Click** cycling controllers into a wireless keyboard.
+Turn one or more **Click** cycling controllers into a wireless keyboard.
+
+> Designed for *Click*-style cycling controllers such as the *Zwift Click*.
+> This is an independent project and is not affiliated with or endorsed by Zwift.
 
 This tool connects to your Click controllers over Bluetooth Low Energy, decodes
 their button presses, and injects the corresponding keystrokes into your system —
@@ -29,22 +32,55 @@ Works with both button layouts:
   to wake them and the bridge reconnects on its own.
 - **Battery reporting** and a rotating debug log (`click_bridge.log`).
 
+## Portable version (no installation)
+
+The easiest way to run the bridge — **no Python, no install**. Grab a portable
+executable from the [**Releases**](https://github.com/pyubero/bt-driver/releases)
+page, put it in a folder of its own, and run it. On first run it creates a
+`config.toml` next to itself; edit that file to set your controllers, then run it
+again.
+
+**Windows**
+1. Download `click-bridge-windows-portable.exe` into an empty folder.
+2. Double-click it. Windows may warn about an "unknown publisher" (the app is
+   unsigned) — choose **More info → Run anyway**.
+3. It writes a `config.toml` beside the `.exe`. Open it, set your controllers, and
+   run the `.exe` again.
+
+**Linux**
+1. Download `click-bridge-linux-portable` into an empty folder.
+2. Make it executable and run it:
+   ```bash
+   chmod +x click-bridge-linux-portable
+   ./click-bridge-linux-portable
+   ```
+3. It writes a `config.toml` beside the binary. Edit it, then run again.
+4. For the prompt-free virtual keyboard, do the one-time
+   [uinput setup](#one-time-uinput-access-linux--wayland) below. Without it the app
+   still works via pynput.
+
+`config.toml`, `devices.json`, and `click_bridge.log` all live next to the
+executable, so each machine keeps its own configuration.
+
 ## Requirements
 
 - Python 3.11 (a [Conda](https://docs.conda.io/) environment is provided)
 - A Bluetooth adapter
   - **Linux:** BlueZ
   - **Windows:** WinRT (built in)
-- One or more Zwift Click controllers
+- One or more Click controllers
 
 ## Install
+
+For development or if you prefer running from source (otherwise use the
+[portable version](#portable-version-no-installation) above):
 
 ```bash
 git clone https://github.com/pyubero/bt-driver.git
 cd bt-driver
 
 conda env create -f environment.yml
-conda activate zwift-click
+conda activate click-bridge
 ```
 
 To update an existing environment instead:
@@ -104,13 +140,12 @@ case-insensitive.
 ## Run
 
 ```bash
-python click_to_keys.py          # add -v for button-by-button debug output
+python -m src.main               # add -v for button-by-button debug output
 ```
 
-Equivalent invocations:
+Equivalent invocation:
 
 ```bash
-python -m src.main
 python src/main.py
 ```
 
@@ -130,11 +165,10 @@ Press `Ctrl+C` to quit.
 ## Project layout
 
 ```
-click_to_keys.py     Entry-point shim (runs src/main.py)
 src/
   main.py            Logging, discovery orchestration, per-device tasks
   config.py          Config loading, paths, key-name validation
-  protocol.py        Zwift BLE UUIDs and button-message decoding
+  protocol.py        Click BLE UUIDs and button-message decoding
   discovery.py       Shared scanner, auto-discovery, controller identification
   device.py          Per-controller tracker and the reconnecting device loop
   keyboard.py        uinput / pynput injection backends
@@ -145,7 +179,7 @@ config.toml          Your controller and key-map configuration
 
 The **`helpers/`** scripts are handy when setting things up:
 
-- `discover.py` — list nearby Zwift controllers and their addresses
+- `discover.py` — list nearby Click controllers and their addresses
 - `device_info.py` — dump a controller's name, serial, firmware, battery
 - `decode_buttons.py` — live-print raw button masks as you press buttons
 - `handshake.py` — low-level connection/handshake experimentation

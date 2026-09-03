@@ -5,7 +5,7 @@ from bleak import BleakScanner, BleakClient
 # ADDRESS = "F4:C4:59:03:BC:6F"  # the one with ABXY+
 ADDRESS = "F4:C4:59:03:A0:F3" # the one with up/down-
 
-# Zwift service characteristics (base ...19ca-4651-86e5-fa29dcdd09d1)
+# Click service characteristics (base ...19ca-4651-86e5-fa29dcdd09d1)
 CONTROL_POINT = "00000003-19ca-4651-86e5-fa29dcdd09d1"  # write: handshake/commands
 RESPONSE      = "00000004-19ca-4651-86e5-fa29dcdd09d1"  # indicate: handshake reply
 MEASURED      = "00000002-19ca-4651-86e5-fa29dcdd09d1"  # notify: button data
@@ -58,7 +58,7 @@ asyncio.run(main())
 
 
 # Scanning... (press a button to wake the Click if needed)
-# Found Zwift Click. Connecting...
+# Found Click controller. Connecting...
 # Connected: True
 
 # [ 16.619s] Writing handshake b'RideOn' to control point...
@@ -135,9 +135,9 @@ asyncio.run(main())
 # [ 55.469s] MEASURED  len= 7  hex=23 08 ff ff ff ff 0f  ascii='#......'
 
 # ======================= SECOND CONTROLLER =======================
-# (zwift) pablo@pablo-15ICH:~/Documentos/bt-driver$ python handshake.py 
+# (click-bridge) pablo@pablo-15ICH:~/Documentos/bt-driver$ python handshake.py
 # Scanning... (press a button to wake the Click if needed)
-# Found Zwift Click. Connecting...
+# Found Click controller. Connecting...
 # Connected: True
 
 # [ 22.099s] Writing handshake b'RideOn' to control point...

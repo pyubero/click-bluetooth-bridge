@@ -1,6 +1,6 @@
-"""Zwift BLE protocol: characteristic UUIDs and button-message parsing."""
+"""Click controller BLE protocol: characteristic UUIDs and button-message parsing."""
 
-# Zwift service characteristics.
+# Click service characteristics.
 CONTROL_POINT = "00000003-19ca-4651-86e5-fa29dcdd09d1"  # write: handshake
 RESPONSE      = "00000004-19ca-4651-86e5-fa29dcdd09d1"  # indicate: handshake reply
 MEASURED      = "00000002-19ca-4651-86e5-fa29dcdd09d1"  # notify: button data
@@ -17,9 +17,11 @@ DIS = {  # human label -> Device Information Service characteristic
     "hardware":     "00002a27-0000-1000-8000-00805f9b34fb",
 }
 
-# How auto-discovery recognises a Zwift controller.
-ZWIFT_NAME_HINT = "zwift"
-ZWIFT_SERVICE_UUIDS = {
+# How auto-discovery recognises a Click controller.
+# NAME_HINT matches the name the controller broadcasts over BLE (which we don't
+# control); SERVICE_UUIDS are the primary, more reliable signal.
+NAME_HINT = "zwift"
+SERVICE_UUIDS = {
     "0000fc82-0000-1000-8000-00805f9b34fb",   # newer firmware
     "00000001-19ca-4651-86e5-fa29dcdd09d1",   # older firmware
 }

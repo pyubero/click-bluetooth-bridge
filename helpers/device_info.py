@@ -4,7 +4,7 @@ from pathlib import Path
 
 from bleak import BleakScanner, BleakClient
 
-# Standard GATT characteristics (no Zwift handshake needed to read these).
+# Standard GATT characteristics (no Click handshake needed to read these).
 DEVICE_NAME = "00002a00-0000-1000-8000-00805f9b34fb"
 BATTERY     = "00002a19-0000-1000-8000-00805f9b34fb"
 DIS = [

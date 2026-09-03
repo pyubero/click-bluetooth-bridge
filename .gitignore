@@ -1,3 +1,8 @@
+# Per-machine runtime files (seeded from config.default.toml on first run).
+# The tracked template is config.default.toml; each user edits their own copy.
+config.toml
+devices.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -31,6 +36,8 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+# ...except our committed build spec, which CI needs.
+!click-bridge.spec
 
 # Installer logs
 pip-log.txt

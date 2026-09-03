@@ -1,13 +1,33 @@
 """Config loading, file paths, and backend-agnostic key-name validation."""
 
+import logging
+import shutil
 import sys
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+# Where the user-editable runtime files live. In a PyInstaller build ROOT is the
+# folder holding the portable executable (so config.toml, devices.json and the log
+# sit next to it, editable per machine and persistent across runs); from source it
+# is the repo root.
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys.executable).resolve().parent
+else:
+    ROOT = Path(__file__).resolve().parent.parent
+
 CONFIG_PATH = ROOT / "config.toml"
 REGISTRY_PATH = ROOT / "devices.json"
 LOG_PATH = ROOT / "click_bridge.log"
+
+# The shipped template used to seed a fresh config.toml on first run. When frozen
+# it is bundled inside the executable (extracted to sys._MEIPASS at launch); from
+# source it is the tracked copy in the repo root.
+if getattr(sys, "frozen", False):
+    DEFAULT_CONFIG_PATH = Path(sys._MEIPASS) / "config.default.toml"
+else:
+    DEFAULT_CONFIG_PATH = ROOT / "config.default.toml"
+
+log = logging.getLogger("click_bridge")
 
 # Vocabularies used to validate a mapping at load time. The actual key objects
 # are built per backend (pynput Key / evdev keycode).
@@ -39,6 +59,13 @@ def parse_spec(spec: str):
 
 def load_config():
     """Return a list of dicts: {name, address (or None), keymap}."""
+    # First run (typically the portable build): no config.toml next to the app yet,
+    # so seed one from the bundled template and tell the user to edit it.
+    if not CONFIG_PATH.exists():
+        shutil.copyfile(DEFAULT_CONFIG_PATH, CONFIG_PATH)
+        log.info("Created %s -- edit it to set your controllers, then run again.",
+                 CONFIG_PATH)
+
     with open(CONFIG_PATH, "rb") as f:
         cfg = tomllib.load(f)
 

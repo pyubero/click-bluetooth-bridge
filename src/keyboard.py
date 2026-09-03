@@ -106,7 +106,7 @@ class UinputKeyboard:
             used.update(mods)
             used.add(keycode)
 
-        self.ui = UInput({e.EV_KEY: sorted(used)}, name="zwift-click")
+        self.ui = UInput({e.EV_KEY: sorted(used)}, name="click-bridge")
 
     @staticmethod
     def _tables(e):
