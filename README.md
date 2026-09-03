@@ -14,14 +14,14 @@ Works with both button layouts:
 
 | Layout | Buttons |
 |--------|---------|
-| **ABXY** | `A` `B` `Y` `Z` `PLUS` |
+| **ABYZ** | `A` `B` `Y` `Z` `PLUS` |
 | **d-pad** | `UP` `DOWN` `LEFT` `RIGHT` `MINUS` |
 
 ## Features
 
 - **Multi-controller** — run several Clicks at once, each with its own key map.
 - **Auto-discovery** — leave the MAC address out and the bridge assigns the next
-  controller it finds; it even tells ABXY and d-pad units apart by serial and
+  controller it finds; it even tells ABYZ and d-pad units apart by serial and
   binds each to its matching config block.
 - **Held keys and combos** — a single key stays held while the button is held; a
   combo like `ctrl+c` fires once on press.
@@ -116,7 +116,7 @@ a button-to-key map:
 
 ```toml
 [[controller]]
-name = "abxy"
+name = "abyz"
 # address = "XX:XX:XX:XX:XX:XX"   # delete/omit this line to auto-assign
 
 [controller.buttons]
@@ -152,11 +152,11 @@ python src/main.py
 Typical startup:
 
 ```
-Loaded 2 controller(s): abxy, dpad
+Loaded 2 controller(s): abyz, dpad
 discovering ...
-[abxy] assigned -> F4:C4:59:03:BC:6F (serial prefix 0A)
+[abyz] assigned -> F4:C4:59:03:BC:6F (serial prefix 0A)
 [dpad] assigned -> F4:C4:59:03:A0:F3 (serial prefix 0B)
-[abxy] ready.
+[abyz] ready.
 [dpad] ready.
 ```
 

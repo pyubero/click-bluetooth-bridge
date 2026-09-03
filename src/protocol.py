@@ -29,7 +29,7 @@ SERVICE_UUIDS = {
 # bit index in the 32-bit active-low mask -> button name.
 BUTTONS = {
     0: "LEFT", 1: "UP", 2: "RIGHT", 3: "DOWN", 8: "MINUS",   # d-pad + minus
-    4: "A", 5: "B", 6: "Y", 7: "Z", 12: "PLUS",              # ABXY + plus
+    4: "A", 5: "B", 6: "Y", 7: "Z", 12: "PLUS",              # ABYZ + plus
 }
 
 

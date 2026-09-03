@@ -13,7 +13,7 @@ log = logging.getLogger("click_bridge")
 # The DIS serial prefix identifies a controller's layout so the matching config
 # block (by name) gets bound to it. Both units share the same serial suffix;
 # only the prefix differs. Unknown prefixes fall back to asking the user.
-SERIAL_PREFIX_TO_NAME = {"0A": "abxy", "0B": "dpad"}
+SERIAL_PREFIX_TO_NAME = {"0A": "abyz", "0B": "dpad"}
 
 
 class Discovery:

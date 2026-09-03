@@ -2,7 +2,7 @@ import asyncio
 import time
 from bleak import BleakScanner, BleakClient
 
-# ADDRESS = "F4:C4:59:03:BC:6F"  # the one with ABXY+
+# ADDRESS = "F4:C4:59:03:BC:6F"  # the one with ABYZ+
 ADDRESS = "F4:C4:59:03:A0:F3" # the one with up/down-
 
 # Click service characteristics (base ...19ca-4651-86e5-fa29dcdd09d1)

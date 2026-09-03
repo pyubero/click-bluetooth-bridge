@@ -11,11 +11,11 @@
 #     grabs the next Click controller it discovers that no other block has
 #     claimed. No MAC lookup needed.
 #     Note: auto slots are filled in discovery order, which is not guaranteed.
-#     If your controllers have DIFFERENT button layouts (e.g. abxy vs dpad),
+#     If your controllers have DIFFERENT button layouts (e.g. abyz vs dpad),
 #     prefer fixed addresses so each layout gets its matching key map.
 #
 # Button layouts seen so far:
-#     abxy layout:  A  B  Y  Z  PLUS
+#     abyz layout:  A  B  Y  Z  PLUS
 #     dpad layout:  UP  DOWN  LEFT  RIGHT  MINUS
 # Button names are case-insensitive. A single key is HELD while the button is
 # held; a combo (contains "+") is TAPPED once on press.
@@ -28,7 +28,7 @@
 # file) with first-seen / last-seen timestamps plus serial/firmware/hardware.
 
 [[controller]]
-name = "abxy"
+name = "abyz"
 # address = "XX:XX:XX:XX:XX:XX"   # delete this line to auto-assign instead
 
 [controller.buttons]

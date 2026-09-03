@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A Bluetooth bridge that translates button presses from Click cycling controllers into keyboard inputs. Connects to one or more Click controllers (two button layouts: ABXY or d-pad), decodes their protobuf button messages, and injects the corresponding keystrokes into the system (kernel uinput on Linux/Wayland, pynput on Windows/X11).
+A Bluetooth bridge that translates button presses from Click cycling controllers into keyboard inputs. Connects to one or more Click controllers (two button layouts: ABYZ or d-pad), decodes their protobuf button messages, and injects the corresponding keystrokes into the system (kernel uinput on Linux/Wayland, pynput on Windows/X11).
 
 **Key components:**
 - **src/** — The bridge package, one module per concern (run `python -m src.main`):
@@ -59,12 +59,12 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 python -m src.main
 
 # Expected output during startup:
-#   "Loaded 2 controller(s): abxy, dpad"
-#   "[abxy] discovering a controller..."
+#   "Loaded 2 controller(s): abyz, dpad"
+#   "[abyz] discovering a controller..."
 #   "[dpad] discovering a controller..."
-#   "[abxy] assigned -> F4:C4:59:03:BC:6F"
+#   "[abyz] assigned -> F4:C4:59:03:BC:6F"
 #   "[dpad] assigned -> F4:C4:59:03:A0:F3"
-#   "[abxy] ready."
+#   "[abyz] ready."
 #   "[dpad] ready."
 ```
 
@@ -73,7 +73,7 @@ The process auto-discovers controllers if no fixed MAC address is configured, or
 ## Configuration
 
 **config.toml** defines controller blocks (name, optional fixed MAC address, button-to-key mapping):
-- Buttons: A, B, Y, Z, PLUS (ABXY layout) or UP, DOWN, LEFT, RIGHT, MINUS (d-pad layout)
+- Buttons: A, B, Y, Z, PLUS (ABYZ layout) or UP, DOWN, LEFT, RIGHT, MINUS (d-pad layout)
 - Keys: single characters ("a", "5"), special names (space, enter, up, down, etc.), F keys (f1–f12), or combos with "+" (ctrl+c, shift+a)
 - Auto-discovery: omit the `address` line to let the tool assign the next discovered controller
 
@@ -90,7 +90,7 @@ The only good high level test is a real world test button by button. If necessar
 
 **Button Message Decoding:**
 - Messages are protobuf with type byte 0x23 followed by varint-encoded fields
-- Field 1 (tag >> 3 == 1) is the 32-bit button mask (active-low, bits 0–7 for d-pad or ABXY, bits 8/12 for MINUS/PLUS)
+- Field 1 (tag >> 3 == 1) is the 32-bit button mask (active-low, bits 0–7 for d-pad or ABYZ, bits 8/12 for MINUS/PLUS)
 - `parse_button_mask()` extracts the mask; `Tracker.update()` compares old vs. new state to fire press/release events
 
 **Key Concepts:**

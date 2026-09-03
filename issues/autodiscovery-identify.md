@@ -4,21 +4,21 @@
 
 Auto-discovery resolved each address-less `[[controller]]` block by calling
 `Discovery.claim_next()`, which returns the **next Click MAC in arbitrary
-discovery order**. With two controllers of different layouts (abxy vs dpad),
+discovery order**. With two controllers of different layouts (abyz vs dpad),
 this routinely bound the wrong keymap to the wrong physical controller — the
-`abxy` block could end up driving the d-pad unit.
+`abyz` block could end up driving the d-pad unit.
 
 The controllers are distinguishable by their **DIS serial prefix** (already
-recorded in `devices.json`): `0A` = abxy, `0B` = d-pad. Both share the same
+recorded in `devices.json`): `0A` = abyz, `0B` = d-pad. Both share the same
 serial suffix; only the prefix differs.
 
-> **Correction:** `ISSUES.md` originally stated `0A` = d-pad / `0B` = abxy, which
+> **Correction:** `ISSUES.md` originally stated `0A` = d-pad / `0B` = abyz, which
 > is **inverted** relative to the real hardware. `helpers/decode_buttons.py`
 > connects to `F4:C4:59:03:BC:6F` (serial `0A`) and its captured session shows
-> **ABXY** presses (bits 4–7,12), proving `0A` is the abxy controller. The first
-> pass shipped the inverted table, so the `dpad` block was bound to an abxy
+> **ABYZ** presses (bits 4–7,12), proving `0A` is the abyz controller. The first
+> pass shipped the inverted table, so the `dpad` block was bound to an abyz
 > device and emitted no key presses (its owned bits never changed). Fixed by
-> flipping `SERIAL_PREFIX_TO_NAME` to `{"0A": "abxy", "0B": "dpad"}`.
+> flipping `SERIAL_PREFIX_TO_NAME` to `{"0A": "abyz", "0B": "dpad"}`.
 
 ## Fix
 
@@ -32,7 +32,7 @@ launch is deterministic.
 
 ### Code (`click_to_keys.py`)
 
-- **`SERIAL_PREFIX_TO_NAME = {"0A": "abxy", "0B": "dpad"}`** — prefix → block name.
+- **`SERIAL_PREFIX_TO_NAME = {"0A": "abyz", "0B": "dpad"}`** — prefix → block name.
 - **`CONFIG_PATH`** module constant (also reused by `load_config()`).
 - **`read_serial(device)`** — brief `BleakClient` connect to read `DIS["serial"]`
   via the existing `_read_text()`; returns `None` on any error.
@@ -57,5 +57,5 @@ launch is deterministic.
   part of this change. Without the flag, re-running discovery for a controller
   means deleting its `address =` line in `config.toml` (the write-back message
   says so).
-- Matching is by block **name** (`dpad`/`abxy`); renaming a block means its
+- Matching is by block **name** (`dpad`/`abyz`); renaming a block means its
   prefix maps to a missing name and the tool asks instead.
