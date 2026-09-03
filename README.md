@@ -28,6 +28,9 @@ Works with both button layouts:
 - **Wayland-safe injection** — on Linux it injects through a kernel `/dev/uinput`
   virtual keyboard, so Wayland treats it as ordinary hardware and never prompts.
   Falls back to [pynput](https://github.com/moses-palmer/pynput) on Windows/X11.
+- **Layout-aware keys** — the uinput backend detects your active keyboard layout
+  (via libxkbcommon) so characters like `+` and `-` land correctly on non-US
+  layouts (e.g. Spanish). Falls back to US if the layout can't be detected.
 - **Automatic reconnection** — controllers sleep to save battery; press any button
   to wake them and the bridge reconnects on its own.
 - **Battery reporting** and a rotating debug log (`click_bridge.log`).

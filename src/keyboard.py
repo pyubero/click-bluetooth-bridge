@@ -14,6 +14,7 @@ headless box (no X connection), which would stop the uinput backend from running
 
 import logging
 import os
+import subprocess
 import sys
 
 log = logging.getLogger("click_bridge")
@@ -73,6 +74,166 @@ class PynputKeyboard:
         self.held.clear()
 
 
+def _layout_from_env():
+    layout = os.environ.get("XKB_DEFAULT_LAYOUT", "").split(",")[0].strip()
+    variant = os.environ.get("XKB_DEFAULT_VARIANT", "").split(",")[0].strip()
+    return (layout, variant) if layout else None
+
+
+def _layout_from_localectl():
+    try:
+        out = subprocess.run(["localectl", "status"],
+                             capture_output=True, text=True, timeout=2)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    layout = variant = ""
+    for line in out.stdout.splitlines():
+        s = line.strip()
+        if s.startswith("X11 Layout:"):
+            layout = s.split(":", 1)[1].strip().split(",")[0]
+        elif s.startswith("X11 Variant:"):
+            variant = s.split(":", 1)[1].strip().split(",")[0]
+    return (layout, variant) if layout else None
+
+
+def _layout_from_setxkbmap():
+    try:
+        out = subprocess.run(["setxkbmap", "-query"],
+                             capture_output=True, text=True, timeout=2)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    layout = variant = ""
+    for line in out.stdout.splitlines():
+        if line.startswith("layout:"):
+            layout = line.split(":", 1)[1].strip().split(",")[0]
+        elif line.startswith("variant:"):
+            variant = line.split(":", 1)[1].strip().split(",")[0]
+    return (layout, variant) if layout else None
+
+
+def _detect_layout():
+    """Best-effort active XKB layout as (layout, variant).
+
+    uinput injects physical keycodes, so the character a key produces depends on
+    the user's layout. Source priority differs by session type: under Wayland,
+    `setxkbmap` queries XWayland, which usually reports its own US default rather
+    than the real layout, so trust the session env (XKB_DEFAULT_LAYOUT, which is
+    what libxkbcommon itself uses) and `localectl` ahead of it. On X11, setxkbmap
+    queries the real server and is authoritative. First hit wins; default to US.
+    """
+    wayland = bool(os.environ.get("WAYLAND_DISPLAY")) or \
+        os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+    if wayland:
+        sources = [_layout_from_env, _layout_from_localectl, _layout_from_setxkbmap]
+    else:
+        sources = [_layout_from_setxkbmap, _layout_from_localectl, _layout_from_env]
+    for source in sources:
+        got = source()
+        if got:
+            return got
+    return "us", ""
+
+
+_CHAR_MAP_UNBUILT = object()  # sentinel: charmap not built yet
+_char_map = _CHAR_MAP_UNBUILT
+
+
+def _build_char_map(e):
+    """{char: (evdev_keycode, [modifier_keycodes])} for the active layout, using
+    libxkbcommon (the same library the compositor uses). Returns None if xkbcommon
+    is unavailable or the layout can't be loaded, so the caller falls back to the
+    hardcoded US tables.
+
+    Built once and cached so every controller resolves keys identically (detecting
+    per-controller could otherwise diverge, e.g. one gets the real layout and
+    another the US default if a detection subprocess momentarily fails).
+    """
+    global _char_map
+    if _char_map is not _CHAR_MAP_UNBUILT:
+        return _char_map
+    _char_map = _compute_char_map(e)
+    return _char_map
+
+
+def _compute_char_map(e):
+    try:
+        from xkbcommon import xkb
+    except ImportError:
+        return None
+
+    layout, variant = _detect_layout()
+    try:
+        km = xkb.Context().keymap_new_from_names(layout=layout,
+                                                 variant=variant or None)
+    except Exception as ex:  # bad layout name, missing xkb data, etc.
+        log.warning("[uinput] could not load layout %r (%s); using US fallback.",
+                    layout, ex)
+        return None
+
+    mod_names = [km.mod_get_name(i) for i in range(km.num_mods())]
+    # XKB modifier name -> the evdev modifier key we can actually emit.
+    mod_to_evdev = {
+        "Shift": e.KEY_LEFTSHIFT,
+        "Mod5": e.KEY_RIGHTALT, "LevelThree": e.KEY_RIGHTALT,  # AltGr
+        "Control": e.KEY_LEFTCTRL,
+        "Mod1": e.KEY_LEFTALT, "Alt": e.KEY_LEFTALT,
+        "Mod4": e.KEY_LEFTMETA, "Super": e.KEY_LEFTMETA,
+    }
+
+    def mods_for_level(kc, lvl):
+        """Simplest emittable modifier-keycode list for a (key, level), or None
+        if every option needs a modifier we can't emit (or caps lock)."""
+        best = None
+        for mask in km.key_get_mods_for_level(kc, 0, lvl):
+            names = [mod_names[i] for i in range(len(mod_names)) if mask & (1 << i)]
+            if "Lock" in names:  # don't depend on caps-lock state
+                continue
+            codes, ok = [], True
+            for n in names:
+                code = mod_to_evdev.get(n)
+                if code is None:
+                    ok = False
+                    break
+                if code not in codes:
+                    codes.append(code)
+            if ok and (best is None or len(codes) < len(best)):
+                best = codes
+        return best
+
+    def sym_char(sym):
+        try:
+            s = xkb.keysym_to_string(sym)
+        except Exception:
+            return None
+        return s if (s and len(s) == 1 and s.isprintable()) else None
+
+    best = {}  # char -> (level, evdev_keycode, [modifier_keycodes])
+    for kc in range(km.min_keycode(), km.max_keycode() + 1):
+        evdev_code = kc - 8  # XKB keycodes are offset by 8 from evdev
+        if evdev_code < 0:
+            continue
+        for lvl in range(km.num_levels_for_key(kc, 0)):
+            mods = mods_for_level(kc, lvl)
+            if mods is None:
+                continue
+            for sym in km.key_get_syms_by_level(kc, 0, lvl):
+                ch = sym_char(sym)
+                if not ch:
+                    continue
+                prev = best.get(ch)
+                if prev is None or (lvl, evdev_code) < (prev[0], prev[1]):
+                    best[ch] = (lvl, evdev_code, mods)
+
+    charmap = {ch: (kc, mods) for ch, (_lvl, kc, mods) in best.items()}
+    log.info("[uinput] keyboard layout: %s%s (%d characters mapped).",
+             layout, f"-{variant}" if variant else "", len(charmap))
+    return charmap
+
+
 class UinputKeyboard:
     """Kernel-level virtual keyboard. Injects below the display server, so a
     Wayland compositor treats it as ordinary hardware and never prompts."""
@@ -84,29 +245,61 @@ class UinputKeyboard:
         self.e = e
         self.held = {}          # button -> list of keycodes to release
 
-        keytab, shifted = self._tables(e)
+        named = self._named_keys(e)          # layout-independent function keys
+        charmap = _build_char_map(e)         # layout-aware char -> keycode+mods
+        us_keytab, us_shifted = self._tables(e)  # US fallback if charmap is None
         mod_codes = {
             "ctrl": e.KEY_LEFTCTRL, "control": e.KEY_LEFTCTRL,
             "shift": e.KEY_LEFTSHIFT, "alt": e.KEY_LEFTALT,
             "cmd": e.KEY_LEFTMETA, "win": e.KEY_LEFTMETA, "super": e.KEY_LEFTMETA,
         }
+        aliases = {"plus": "+", "minus": "-"}  # word-names -> their character
 
-        # resolve tokens -> (mod_keycodes, (keycode, needs_shift), is_combo)
+        # resolve tokens -> (all_mod_keycodes, keycode, is_combo)
         self.resolved = {}
         used = {e.KEY_LEFTSHIFT}
         for button, (mod_names, key_name, is_combo) in keymap.items():
-            mods = [mod_codes[m] for m in mod_names]
-            if key_name in keytab:
-                keycode, needs_shift = keytab[key_name], False
-            elif key_name in shifted:
-                keycode, needs_shift = shifted[key_name], True
+            combo_mods = [mod_codes[m] for m in mod_names]
+            name = aliases.get(key_name, key_name)
+            if name in named:                # space, enter, arrows, f-keys, ...
+                keycode, layout_mods = named[name], []
+            elif charmap is not None:        # single character, active layout
+                hit = charmap.get(name)
+                if hit is None:
+                    log.warning("[uinput] %s = %r not producible on this layout; "
+                                "skipping.", button, key_name)
+                    continue
+                keycode, layout_mods = hit
+            elif name in us_keytab:          # xkbcommon unavailable: US fallback
+                keycode, layout_mods = us_keytab[name], []
+            elif name in us_shifted:
+                keycode, layout_mods = us_shifted[name], [e.KEY_LEFTSHIFT]
             else:
-                raise ValueError(f"uinput: unsupported key {key_name!r}")
-            self.resolved[button] = (mods, (keycode, needs_shift), is_combo)
-            used.update(mods)
+                log.warning("[uinput] %s = %r unsupported; skipping.",
+                            button, key_name)
+                continue
+            all_mods = combo_mods + list(layout_mods)
+            self.resolved[button] = (all_mods, keycode, is_combo)
+            used.update(all_mods)
             used.add(keycode)
 
         self.ui = UInput({e.EV_KEY: sorted(used)}, name="click-bridge")
+
+    @staticmethod
+    def _named_keys(e):
+        """Layout-independent function/navigation keys, by name -> evdev keycode.
+        Printable characters are resolved per-layout via _build_char_map instead."""
+        kt = {
+            "space": e.KEY_SPACE, "enter": e.KEY_ENTER, "return": e.KEY_ENTER,
+            "esc": e.KEY_ESC, "escape": e.KEY_ESC, "tab": e.KEY_TAB,
+            "backspace": e.KEY_BACKSPACE, "delete": e.KEY_DELETE, "del": e.KEY_DELETE,
+            "up": e.KEY_UP, "down": e.KEY_DOWN, "left": e.KEY_LEFT, "right": e.KEY_RIGHT,
+            "home": e.KEY_HOME, "end": e.KEY_END,
+            "pageup": e.KEY_PAGEUP, "pagedown": e.KEY_PAGEDOWN,
+        }
+        for i in range(1, 13):
+            kt[f"f{i}"] = getattr(e, f"KEY_F{i}")
+        return kt
 
     @staticmethod
     def _tables(e):
@@ -149,15 +342,14 @@ class UinputKeyboard:
         entry = self.resolved.get(button)
         if not entry:
             return
-        mods, (keycode, needs_shift), is_combo = entry
+        mods, keycode, is_combo = entry
         if is_combo:
-            down = list(mods) + ([self.e.KEY_LEFTSHIFT] if needs_shift else [])
-            self._emit(down, 1)
+            self._emit(mods, 1)
             self._emit([keycode], 1)
             self._emit([keycode], 0)
-            self._emit(list(reversed(down)), 0)
+            self._emit(list(reversed(mods)), 0)
         else:
-            down = ([self.e.KEY_LEFTSHIFT] if needs_shift else []) + [keycode]
+            down = list(mods) + [keycode]
             self._emit(down, 1)
             self.held[button] = down
 

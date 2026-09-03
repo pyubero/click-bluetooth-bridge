@@ -39,7 +39,7 @@ Key dependencies:
 ### Keystroke injection backends
 
 `make_keyboard()` auto-selects the injector; no `config.toml` change is needed:
-- **Linux/Wayland (and X11):** `UinputKeyboard` — a kernel `/dev/uinput` virtual keyboard via evdev. Injecting below the display server means Wayland treats it as ordinary hardware and never prompts.
+- **Linux/Wayland (and X11):** `UinputKeyboard` — a kernel `/dev/uinput` virtual keyboard via evdev. Injecting below the display server means Wayland treats it as ordinary hardware and never prompts. Because it emits physical keycodes, it detects the active keyboard layout (`_detect_layout()`) and resolves characters to the right keycodes via libxkbcommon (`_build_char_map()`), so e.g. `+`/`-` work on a Spanish layout; if xkbcommon is unavailable it falls back to a hardcoded US table.
 - **Windows, or Linux when uinput is unavailable:** `PynputKeyboard` (the pynput backend).
 
 **One-time uinput access** (`/dev/uinput` is root-only by default). Install the shipped udev rule and join the `input` group; without this the bridge falls back to pynput (Wayland may keep prompting):

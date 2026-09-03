@@ -27,3 +27,8 @@ dependencies:
     # on Wayland (and X11) so the compositor never prompts for input permission.
     # Needs one-time access to /dev/uinput -- see README/CLAUDE.md.
     - "evdev>=1.6 ; sys_platform == 'linux'"
+
+    # Linux only: libxkbcommon binding. Lets the uinput backend detect the active
+    # keyboard layout and inject the right keycodes for it (e.g. "+"/"-" on a
+    # Spanish layout), instead of assuming US. Falls back to US if unavailable.
+    - "xkbcommon>=1.0 ; sys_platform == 'linux'"
